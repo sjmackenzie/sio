@@ -1,3 +1,0 @@
-let a: () = () { "ok" }
-
-print(a()) // expect: ok

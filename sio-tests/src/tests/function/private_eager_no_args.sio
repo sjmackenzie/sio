@@ -3,13 +3,8 @@ url type : src;
 url name : app_name;
 url app : public_key::type::name;
 general app::Module {
-    pub a :: lazy (arg) { arg }
+    a :: () { "ok" }
     main :: () {
-        let a = "outer";
-        {
-            let a = "inner";
-            print(a); // expect: inner
-        }
-        print(a); // expect: outer
+        print(a()); // expect: ok
     }
 }

@@ -108,17 +108,22 @@ mod general_tests {
         url name : app_name;
         url app : public_key::type::name;
         general app::General {
+            use app::{
+                Brigadier::{fun1, fun2, main},
+                Corporal::{*},
+                Major::{self, fun5},  
+            };
             url g0: siopub00119a708c25a23ed367610facc14035adc7ba4b1bfa9252ef55c6c24f1b9b03abdabca;
             url g1: siopub00129a708c25a23ed367610facc14035adc7ba4b1bfa9252ef55c6c24f1b9b03abdabcb;
             url g2: siopub00139a708c25a23ed367610facc14035adc7ba4b1bfa9252ef55c6c24f1b9b03abdabcc;
             url g3: siopub00149a708c25a23ed367610facc14035adc7ba4b1bfa9252ef55c6c24f1b9b03abdabcd;
             url g4: siopub00159a708c25a23ed367610facc14035adc7ba4b1bfa9252ef55c6c24f1b9b03abdabce;
             url g5: siopub00169a708c25a23ed367610facc14035adc7ba4b1bfa9252ef55c6c24f1b9b03abdabcf;
-            install_brigadier :: (garrison: pid, subordinate: pid) -> pid {
-                let pid = spawn(app::Brigadier::main::(subordinate), garrison);
+            install_brigadier :: (garrison, subordinate) {
+                let pid = spawn(main, [subordinate], garrison);
                 pid;
             }
-            main :: () {
+            pub main :: () {
                 let b0, b1, b2, b3, b4, b5;
                 subordinate(b0, b1);
                 subordinate(b1, b2);

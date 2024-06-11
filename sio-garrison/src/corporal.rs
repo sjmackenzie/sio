@@ -125,7 +125,7 @@ mod corporal_tests {
                     assign_the_value(y, false);
                 }
             }
-            assign_the_value :: (y: int , value: int) {
+            assign_the_value :: (y , value) {
                 y = value;
             }
         }
@@ -142,7 +142,7 @@ mod corporal_tests {
                     assign_the_value(y, false);
                 }
             }
-            assign_the_value :: (y: int , value: int) {
+            assign_the_value :: (y , value) {
                 y = value;
             }
         }";

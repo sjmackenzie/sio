@@ -1,3 +1,0 @@
-let a: () = lazy () { "ok" }
-
-print(a()) // expect: ok

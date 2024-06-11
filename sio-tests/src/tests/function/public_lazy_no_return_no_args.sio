@@ -1,3 +1,0 @@
-summon lazy fun_name :: () { "ok" }
-
-print(fun_name()) // expect: ok

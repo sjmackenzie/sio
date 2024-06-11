@@ -64,7 +64,6 @@ mod block {
 }
 mod r#if {
     use super::harness;
-
     #[test]
     fn r#if() {
         harness(include_str!("if/if.sio"));
@@ -73,7 +72,6 @@ mod r#if {
 
 mod thread {
     use super::harness;
-
     #[test]
     fn thread() {
         harness(include_str!("thread/thread.sio"));
@@ -82,7 +80,6 @@ mod thread {
 
 mod module {
     use super::harness;
-
     #[test]
     fn module() {
         harness(include_str!("module/module.sio"));
@@ -91,44 +88,73 @@ mod module {
 
 mod portcullis {
     use super::harness;
-
     #[test]
-    fn module() {
+    fn portcullis() {
         harness(include_str!("portcullis/portcullis.sio"));
     }
 }
-/*
+
 mod function {
     use super::harness;
-
     #[test]
-    fn anonymous_eager_no_return_no_args() {
-        harness(include_str!("function/anonymous_eager_no_return_no_args.sio"));
+    fn anonymous_eager_no_args() {
+        harness(include_str!("function/anonymous_eager_no_args.sio"));
     }
-
     #[test]
-    fn anonymous_lazy_no_return_no_args() {
-        harness(include_str!("function/anonymous_lazy_no_return_no_args.sio"));
+    fn anonymous_eager_args() {
+        harness(include_str!("function/anonymous_eager_args.sio"));
     }
-
     #[test]
-    fn private_eager_no_return_no_args() {
-        harness(include_str!("function/private_eager_no_return_no_args.sio"));
+    fn anonymous_lazy_no_args() {
+        harness(include_str!("function/anonymous_lazy_no_args.sio"));
     }
-
     #[test]
-    fn private_lazy_no_return_no_args() {
-        harness(include_str!("function/private_lazy_no_return_no_args.sio"));
+    fn anonymous_lazy_args() {
+        harness(include_str!("function/anonymous_lazy_args.sio"));
     }
-
     #[test]
-    fn public_eager_no_return_no_args() {
-        harness(include_str!("function/public_eager_no_return_no_args.sio"));
+    fn private_eager_no_args() {
+        harness(include_str!("function/private_eager_no_args.sio"));
     }
-
     #[test]
-    fn public_lazy_no_return_no_args() {
-        harness(include_str!("function/public_lazy_no_return_no_args.sio"));
+    fn private_eager_args() {
+        harness(include_str!("function/private_eager_ags.sio"));
+    }
+    #[test]
+    fn private_lazy_no_args() {
+        harness(include_str!("function/private_lazy_no_args.sio"));
+    }
+    #[test]
+    fn private_lazy_args() {
+        harness(include_str!("function/private_lazy_args.sio"));
+    }
+    #[test]
+    fn public_eager_no_args() {
+        harness(include_str!("function/public_eager_no_args.sio"));
+    }
+    #[test]
+    fn public_eager_args() {
+        harness(include_str!("function/public_eager_args.sio"));
+    }
+    #[test]
+    fn public_lazy_no_args() {
+        harness(include_str!("function/public_lazy_no_args.sio"));
+    }
+    #[test]
+    fn public_lazy_args() {
+        harness(include_str!("function/public_lazy_args.sio"));
     }
 }
-*/
+
+mod list {
+    use super::harness;
+    #[test]
+    fn list_create() {
+        harness(include_str!("list/list_create.sio"));
+    }
+    #[test]
+    fn list_append() {
+        harness(include_str!("list/list_append.sio"));
+    }
+}
+

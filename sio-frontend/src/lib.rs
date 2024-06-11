@@ -1,4 +1,4 @@
-#![no_std]
+//#![no_std]
 
 extern crate alloc;
 extern crate proc_macro;
@@ -15,6 +15,8 @@ mod token;
 mod tokenizer;
 mod stmt_parser;
 mod expr_parser;
+//mod ast_to_ir;
+//mod url_resolver;
 
 use werbolg_ir_write::module;
 use werbolg_lang_common::{FileUnit, ParseError};
@@ -36,6 +38,8 @@ fn parse(code: &str) -> Result<Ast, Vec<Diagnostic>> {
 #[allow(dead_code)]
 pub fn module(file_unit: &FileUnit) -> Result<werbolg_core::Module, Vec<Diagnostic>> {
     let ast = parse(&file_unit.content)?;
+   // let ir = ast_to_ir::convert_ast_to_module(ast);
+    //Ok(ir)
     Ok(module! {
         fn main() {
             1

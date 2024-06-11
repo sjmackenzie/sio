@@ -127,6 +127,7 @@ impl<'a> Lexer<'a> {
             '(' => Some(Token::LeftParen),
             ')' => Some(Token::RightParen),
             ';' => Some(Token::Semicolon),
+            '|' => Some(Token::Pipe),
             c => Some(Token::Unknown(c)),
         }
     }

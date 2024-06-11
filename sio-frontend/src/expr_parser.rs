@@ -5,6 +5,7 @@ use crate::parser::Parser;
 use crate::position::{WithSpan, Span};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use crate::stmt_parser::{parse_block_statement, parse_params};
 
 use alloc::format;
 
@@ -74,55 +75,27 @@ fn parse_infix(it: &mut Parser, left: WithSpan<Expr>) -> Result<WithSpan<Expr>, 
         TokenKind::Or | TokenKind::And => parse_logical(it, left),
         TokenKind::Equal => parse_assign(it, left),
         TokenKind::LeftParen => parse_call(it, left),
-        TokenKind::LeftBracket => parse_list_get(it, left),
+        TokenKind::LeftBracket => {
+            if it.peek_next() == TokenKind::Pipe {
+                parse_list_append(it)
+            } else {
+                parse_list_get(it, left)
+            }
+        }
         TokenKind::Dot => parse_get(it, left),
+        TokenKind::LeftParen => parse_anonymous_function(it),
         _ => {
-            it.error(&format!("Unexpected {}", it.peek_token().value), it.peek_token().span);
+            let unexpected_token = it.peek_token();
+            it.error(&format!("Unexpected {}", unexpected_token.value), unexpected_token.span);
             Err(())
         },
     }
 }
 
-fn parse_url_call(it: &mut Parser, left: WithSpan<Expr>) -> Result<WithSpan<Expr>, ()> {
-    let mut parts = vec![];
-    if let Expr::Variable(ref id) = left.value {
-        parts.push(id.clone());
-    } else {
-        it.error("Expected identifier for URL call", left.span);
-        return Err(());
-    }
-    while it.peek() == TokenKind::ColonColon {
-        it.expect(TokenKind::ColonColon)?;
-        if it.peek() == TokenKind::Identifier {
-            let part = expect_identifier(it)?;
-            parts.push(part);
-        } else if it.peek() == TokenKind::LeftParen {
-            it.expect(TokenKind::LeftParen)?;
-            let args = parse_arguments(it)?;
-            let most_right = it.expect(TokenKind::RightParen)?;
-
-            let span = Span::union(&parts[0], &most_right);
-            return Ok(WithSpan::new(Expr::UrlCall(parts, args), span));
-        } else {
-            it.error("Expected identifier or '(' for URL call", it.peek_token().span);
-            return Err(());
-        }
-    }
-    if it.peek() == TokenKind::LeftParen {
-        it.expect(TokenKind::LeftParen)?;
-        let args = parse_arguments(it)?;
-        let most_right = it.expect(TokenKind::RightParen)?;
-
-        let span = Span::union(&parts[0], &most_right);
-        return Ok(WithSpan::new(Expr::UrlCall(parts, args), span));
-    } else {
-        it.error("Expected '(' for URL call", it.peek_token().span);
-        return Err(());
-    }
-}
-
-
 fn parse_prefix(it: &mut Parser) -> Result<WithSpan<Expr>, ()> {
+    if it.check(TokenKind::LeftParen) {
+        return parse_anonymous_function(it);
+    }
     match it.peek() {
         TokenKind::Number
         | TokenKind::Nil
@@ -184,6 +157,22 @@ fn parse_arguments(it: &mut Parser) -> Result<Vec<WithSpan<Expr>>, ()> {
     Ok(args)
 }
 
+fn parse_anonymous_function(it: &mut Parser) -> Result<WithSpan<Expr>, ()> {
+    let begin_span = it.expect(TokenKind::LeftParen)?;
+    let params = parse_params(it)?;
+    it.expect(TokenKind::RightParen)?;
+    let block_stmt = parse_block_statement(it)?;
+    let function = Function {
+        visibility: Visibility::Private,
+        name: None,
+        params,
+        body: Box::new(block_stmt.clone()),
+    };
+    let expr = Expr::Function(function);
+    let span = Span::union(&begin_span, &block_stmt);
+    Ok(WithSpan::new(expr, span))
+}
+
 fn parse_assign(it: &mut Parser, left: WithSpan<Expr>) -> Result<WithSpan<Expr>, ()> {
     it.expect(TokenKind::Equal)?;
     let right = parse_expr(it, Precedence::None)?;
@@ -205,6 +194,16 @@ fn parse_logical(it: &mut Parser, left: WithSpan<Expr>) -> Result<WithSpan<Expr>
     let right = parse_expr(it, precedence)?;
     let span = Span::union(&left, &right);
     Ok(WithSpan::new(Expr::Logical(Box::new(left), operator, Box::new(right)), span))
+}
+
+fn parse_list_append(it: &mut Parser) -> Result<WithSpan<Expr>, ()> {
+    let begin_span = it.expect(TokenKind::LeftBracket)?;
+    let item = parse_expr(it, Precedence::Primary)?;
+    it.expect(TokenKind::Pipe)?;
+    let list = parse_expr(it, Precedence::Primary)?;
+    it.expect(TokenKind::RightBracket)?;
+    let span = Span::union(&begin_span, &list);
+    Ok(WithSpan::new(Expr::ListAppend(Box::new(item), Box::new(list)), span))
 }
 
 fn parse_list_items(it: &mut Parser) -> Result<Vec<WithSpan<Expr>>, ()> {
@@ -300,23 +299,17 @@ fn parse_binary_op(it: &mut Parser) -> Result<WithSpan<BinaryOperator>, ()> {
     Ok(WithSpan::new(operator, tc.span))
 }
 
-fn parse_primary(it: &mut Parser) -> Result<WithSpan<Expr>, ()> {
-    let tc = it.advance();
+fn parse_primary(p: &mut Parser) -> Result<WithSpan<Expr>, ()> {
+    let tc = p.advance();
     match &tc.value {
-        &Token::Nil => Ok(WithSpan::new(Expr::Nil, tc.span)),
-        &Token::Number(n) => Ok(WithSpan::new(Expr::Number(n), tc.span)),
-        &Token::True => Ok(WithSpan::new(Expr::Boolean(true), tc.span)),
-        &Token::False => Ok(WithSpan::new(Expr::Boolean(false), tc.span)),
-        &Token::String(ref s) => Ok(WithSpan::new(Expr::String(s.clone()), tc.span)),
-        &Token::Identifier(ref s) => {
-            let identifier_expr = WithSpan::new(Expr::Variable(WithSpan::new(s.clone(), tc.span)), tc.span);
-            if it.peek() == TokenKind::ColonColon {
-                return parse_url_call(it, identifier_expr);
-            }
-            Ok(identifier_expr)
-        },
+        Token::Nil => Ok(WithSpan::new(Expr::Nil, tc.span)),
+        Token::Number(n) => Ok(WithSpan::new(Expr::Number(*n), tc.span)),
+        Token::True => Ok(WithSpan::new(Expr::Boolean(true), tc.span)),
+        Token::False => Ok(WithSpan::new(Expr::Boolean(false), tc.span)),
+        Token::String(ref s) => Ok(WithSpan::new(Expr::String(s.clone()), tc.span)),
+        Token::Identifier(ref s) => Ok(WithSpan::new(Expr::Variable(WithSpan::new(s.clone(), tc.span)), tc.span)),
         _ => {
-            it.error(&format!("Expected primary got {}", tc.value), tc.span);
+            p.error(&format!("Expected primary got {}", tc.value), tc.span);
             Err(())
         },
     }

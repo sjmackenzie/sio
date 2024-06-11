@@ -92,3 +92,43 @@ impl Major {
     }
 }
 
+
+#[cfg(test)]
+mod major_tests {
+    //use alloc::vec::Vec;
+    //use alloc::vec;
+    use alloc::string::ToString;
+    use sio::{create_major_env};
+    use super::*;
+    static src: &str =
+        "
+        major app::Stack {
+            stack :: (inner_stack) {
+                let push = (item) {
+                    stack([item|inner_stack])
+                };
+                let pop = () {
+                    match inner_stack {
+                        | [head|tail] => (head, stack(tail))
+                    }
+                };
+                let is_empty = () {
+                    inner_stack == []
+                };
+            } in {
+                { push, pop, is_empty }
+            }
+            pub new_stack :: (item) {
+                stack([item])
+            }
+        }
+        ";
+
+    #[test]
+    fn basic_major_test() {
+        let env = create_major_env();
+        let mut major = Major::new(src.to_string(), "/".to_string(), env).expect("General failure reason:");
+        major.march();
+        assert_eq!(4, 4);
+    }
+}

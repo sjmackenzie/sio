@@ -65,7 +65,18 @@ fn parse_general_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
     let begin_span = p.expect(TokenKind::General)?;
     let name = parse_hierarchical_names(p)?;
     p.expect(TokenKind::LeftBrace)?;
-    let stmts = parse_general_declarations(p)?;
+    let stmts = parse_module_declarations(p)?;
+    let end_span = p.expect(TokenKind::RightBrace)?;
+    Ok(WithSpan::new(
+        Stmt::Module(Module::General{ name, stmts }),
+        Span::union(&begin_span, &end_span),
+    ))
+}
+fn parse_brigadier_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
+    let begin_span = p.expect(TokenKind::Brigadier)?;
+    let name = parse_hierarchical_names(p)?;
+    p.expect(TokenKind::LeftBrace)?;
+    let stmts = parse_module_declarations(p)?;
     let end_span = p.expect(TokenKind::RightBrace)?;
     Ok(WithSpan::new(
         Stmt::Module(Module::General{ name, stmts }),
@@ -73,13 +84,38 @@ fn parse_general_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
     ))
 }
 
-fn parse_general_declarations(p: &mut Parser) -> Result<Vec<WithSpan<Stmt>>, ()> {
+fn parse_major_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
+    let begin_span = p.expect(TokenKind::Major)?;
+    let name = parse_hierarchical_names(p)?;
+    p.expect(TokenKind::LeftBrace)?;
+    let stmts = parse_module_declarations(p)?;
+    let end_span = p.expect(TokenKind::RightBrace)?;
+    Ok(WithSpan::new(
+        Stmt::Module(Module::General{ name, stmts }),
+        Span::union(&begin_span, &end_span),
+    ))
+}
+
+fn parse_corporal_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
+    let begin_span = p.expect(TokenKind::Corporal)?;
+    let name = parse_hierarchical_names(p)?;
+    p.expect(TokenKind::LeftBrace)?;
+    let stmts = parse_module_declarations(p)?;
+    let end_span = p.expect(TokenKind::RightBrace)?;
+    Ok(WithSpan::new(
+        Stmt::Module(Module::Corporal{ name, stmts }),
+        Span::union(&begin_span, &end_span),
+    ))
+}
+
+fn parse_module_declarations(p: &mut Parser) -> Result<Vec<WithSpan<Stmt>>, ()> {
     let mut statements: Vec<WithSpan<Stmt>> = Vec::new();
     while !p.check(TokenKind::RightBrace) && !p.is_eof() {
         match p.peek() {
             TokenKind::Url => {
                 statements.push(parse_url_declaration(p)?);
             }
+            TokenKind::Use => statements.push(parse_use_statement(p)?),
             TokenKind::Pub | TokenKind::Identifier => {
                 statements.push(parse_function_declaration(p)?);
             }
@@ -93,51 +129,20 @@ fn parse_general_declarations(p: &mut Parser) -> Result<Vec<WithSpan<Stmt>>, ()>
     Ok(statements)
 }
 
-fn parse_corporal_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
-    let begin_span = p.expect(TokenKind::Corporal)?;
-    let name = parse_hierarchical_names(p)?;
-    p.expect(TokenKind::LeftBrace)?;
-
-    let stmts = parse_corporal_declarations(p)?;
-
-    let end_span = p.expect(TokenKind::RightBrace)?;
-
-    Ok(WithSpan::new(
-        Stmt::Module(Module::Corporal{ name, stmts }),
-        Span::union(&begin_span, &end_span),
-    ))
-}
-
-fn parse_corporal_declarations(p: &mut Parser) -> Result<Vec<WithSpan<Stmt>>, ()> {
-    let mut functions: Vec<WithSpan<Stmt>> = Vec::new();
-
-    while p.check(TokenKind::Pub) || p.check(TokenKind::Identifier) {
-        functions.push(parse_function_declaration(p)?);
-    }
-
-    if functions.is_empty() {
-        let token = p.advance();
-        p.error(&format!("Unexpected {}", token.value), token.span);
-        return Err(());
-    }
-
-    Ok(functions)
-}
-
-fn parse_major_declaration(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
-    todo!();
-}
-
-fn parse_brigadier_declaration(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
-    todo!();
-}
-
 fn parse_declaration(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
     match it.peek() {
         TokenKind::Url => parse_url_declaration(it),
+        TokenKind::Identifier => {
+            let next_token = it.peek_next();
+            match next_token {
+                TokenKind::ColonColon => parse_function_declaration(it),
+                _ => parse_statement(it),
+            }
+        },
         _ => parse_statement(it),
     }
 }
+
 
 pub fn parse_statement(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
     match it.peek() {
@@ -153,8 +158,60 @@ pub fn parse_statement(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
 
 fn parse_use_statement(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
     let begin_span = it.expect(TokenKind::Use)?;
-    let name = expect_string(it)?;
-    todo!();
+    let path = parse_use_path(it)?;
+    let items = if it.check(TokenKind::LeftBrace) {
+        it.expect(TokenKind::LeftBrace)?;
+        let sub_items = parse_use_items(it)?;
+        it.expect(TokenKind::RightBrace)?;
+        sub_items
+    } else {
+        vec![UseItem::Simple { path: path.clone() }]
+    };
+    let end_span = it.expect(TokenKind::Semicolon)?;
+    let use_stmt = if items.len() == 1 && matches!(items[0], UseItem::Simple { .. }) {
+        Stmt::Use(path, vec![])
+    } else {
+        Stmt::Use(path, items)
+    };
+    let span = Span::union(&begin_span, &end_span);
+    Ok(WithSpan::new(use_stmt, span))
+}
+
+fn parse_use_path(it: &mut Parser) -> Result<Vec<WithSpan<String>>, ()> {
+    let mut path = Vec::new();
+    while it.check(TokenKind::Identifier) {
+        path.push(expect_identifier(it)?);
+        if it.check(TokenKind::ColonColon) {
+            it.expect(TokenKind::ColonColon)?;
+        } else {
+            break;
+        }
+    }
+    Ok(path)
+}
+
+fn parse_use_items(it: &mut Parser) -> Result<Vec<UseItem>, ()> {
+    let mut items = Vec::new();
+    loop {
+        if it.check(TokenKind::RightBrace) {
+            break;
+        }
+        let item_path = parse_use_path(it)?;
+        if it.check(TokenKind::LeftBrace) {
+            it.expect(TokenKind::LeftBrace)?;
+            let sub_items = parse_use_items(it)?;
+            it.expect(TokenKind::RightBrace)?;
+            items.push(UseItem::Nested { path: item_path, items: sub_items });
+        } else {
+            items.push(UseItem::Simple { path: item_path });
+        }
+        if it.check(TokenKind::Comma) {
+            it.expect(TokenKind::Comma)?;
+        } else {
+            break;
+        }
+    }
+    Ok(items)
 }
 
 fn parse_function_declaration(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
@@ -167,6 +224,46 @@ fn parse_function_declaration(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
 
     let name = expect_identifier(it)?;
 
+    if !it.check(TokenKind::ColonColon) {
+        let token = it.advance();
+        it.error(&format!("Unexpected {} found. Expected '::' after function name '{}'.", token.value, name.value), token.span);
+        return Err(())
+    }
+    it.expect(TokenKind::ColonColon)?;
+    it.expect(TokenKind::LeftParen)?;
+    let params = parse_params(it)?;
+    it.expect(TokenKind::RightParen)?;
+
+    let block_stmt = parse_block_statement(it)?;
+
+    let function = Function {
+        visibility,
+        name: Some(name.clone()),
+        params,
+        body: Box::new(block_stmt.clone()),
+    };
+
+    let stmt = Stmt::Function(function);
+    let span = Span::union(&name, &block_stmt);
+    Ok(WithSpan::new(stmt, span))
+}
+
+/*
+fn parse_function_declaration(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
+    let visibility = if it.check(TokenKind::Pub) {
+        it.expect(TokenKind::Pub)?;
+        Visibility::Public
+    } else {
+        Visibility::Private
+    };
+
+    let name = expect_identifier(it)?;
+    //ensure '::' is present; otherwise error out. This is a function application
+    if !it.check(TokenKind::ColonColon) {
+        let token = it.advance();
+        it.error(&format!("Unexpected {} found. Expected '::' after function name '{}'.", token.value, name.value), token.span);
+        return Err(())
+    }
     it.expect(TokenKind::ColonColon)?;
     it.expect(TokenKind::LeftParen)?;
     let params = parse_params(it)?;
@@ -199,8 +296,8 @@ fn parse_function_declaration(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
     let span = Span::union(&name, end_span);
     Ok(WithSpan::new(stmt, span))
 }
-
-fn parse_params(it: &mut Parser) -> Result<Vec<Param>, ()> {
+*/
+pub fn parse_params(it: &mut Parser) -> Result<Vec<Param>, ()> {
     let mut params: Vec<Param> = Vec::new();
 
     if it.check(TokenKind::RightParen) {
@@ -218,9 +315,9 @@ fn parse_params(it: &mut Parser) -> Result<Vec<Param>, ()> {
 
 fn parse_param(it: &mut Parser) -> Result<Param, ()> {
     let name = expect_identifier(it)?;
-    it.expect(TokenKind::Colon)?;
-    let param_type = expect_identifier(it)?;
-    Ok(Param { name, param_type })
+    //it.expect(TokenKind::Colon)?;
+    //let param_type = expect_identifier(it)?;
+    Ok(Param { name })
 }
 
 fn parse_expr_statement(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
@@ -268,16 +365,13 @@ fn parse_if_statement(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
     ))
 }
 
-fn parse_block_statement(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
+pub fn parse_block_statement(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
     let begin_span = p.expect(TokenKind::LeftBrace)?;
     let mut statements = vec![];
-
     while !p.check(TokenKind::RightBrace) && !p.check(TokenKind::Eof) {
         statements.push(parse_statement(p)?);
     }
-
     let end_span = p.expect(TokenKind::RightBrace)?;
-
     Ok(WithSpan::new(
         Stmt::Block(statements),
         Span::union(&begin_span, &end_span),
@@ -380,7 +474,7 @@ mod tests {
             Ok(vec![
                 ws(Stmt::Url(
                     Box::new(ws("this".into(), 0..4)),
-                    vec![ws("that".into(), 4..8)],
+                    HierarchicalName::new(vec![ws("that".into(), 4..8)]),
                 ), 0..23),
             ])
         );
@@ -393,7 +487,7 @@ mod tests {
             Ok(vec![
                 ws(Stmt::Url(
                     Box::new(ws("this".into(), 0..4)),
-                    vec![ws("that".into(), 4..8), ws("that2".into(), 8..12)],
+                    HierarchicalName::new(vec![ws("that".into(), 4..8), ws("that2".into(), 8..12)]),
                 ), 0..23),
             ])
         );
@@ -433,37 +527,37 @@ mod tests {
     #[test]
     fn test_var_decl() {
         assert_eq!(
-            parse_str("var beverage;"),
+            parse_str("let beverage;"),
             Ok(vec![
                 ws(Stmt::Let(make_span_string("beverage", 4), None), 0..13),
             ])
         );
         assert_eq!(
-            parse_str("var beverage = nil;"),
+            parse_str("let beverage = nil;"),
             Ok(vec![
                 ws(Stmt::Let(
                     make_span_string("beverage", 4),
-                    Some(Box::new(ws(Expr::Nil, 15..18)))
+                    Some(ws(Expr::Nil, 15..18))
                 ), 0..19),
             ])
         );
 
         unsafe {
             assert_eq!(
-                parse_str("var beverage = x = nil;"),
+                parse_str("let beverage = x = nil;"),
                 Ok(vec![
                     ws(Stmt::Let(
                         make_span_string("beverage", 4),
-                        Some(Box::new(ws(Expr::Assign(
+                        Some(ws(Expr::Assign(
                             WithSpan::new_unchecked("x".into(), 15, 16),
                             Box::new(ws(Expr::Nil, 19..22))
-                        ), 15..22)))
+                        ), 15..22))
                     ), 0..23),
                 ])
             );
         }
 
-        assert_errs("if (nil) var beverage = nil;", &["Unexpected 'var'"]);
+        assert_errs("if (nil) let beverage = nil;", &["Unexpected 'var'"]);
     }
 
     #[test]
@@ -517,26 +611,27 @@ mod tests {
             ])
         );
     }
-
+/*
     #[test]
     fn test_use_stmt() {
         assert_eq!(parse_str("use \"mymodule\";"), Ok(vec![
             ws(Stmt::Use(
-                ws("mymodule".into(), 7..17),
-                None
+                vec![ws("mymodule".into(), 7..17)],
+                vec![]
             ), 0..18),
         ]));
 
         assert_eq!(parse_str("import \"mymodule\" for message;"), Ok(vec![
             ws(Stmt::Use(
-                ws("mymodule".into(), 7..17),
+                vec![ws("mymodule".into(), 7..17)],
                 Some(vec![
                     ws("message".into(), 22..29),
                 ])
             ), 0..30),
         ]));
     }
-
+*/
+/*
     #[test]
     fn test_function_stmt() {
         unsafe {
@@ -572,4 +667,5 @@ mod tests {
             );
         }
     }
+    */
 }

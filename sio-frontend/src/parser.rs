@@ -45,6 +45,17 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn peek_next(&self) -> TokenKind {
+        self.peek_token().into()
+    }
+
+    pub fn peek_next_token(&self) -> &'a WithSpan<Token> {
+        match self.tokens.get(self.cursor + 1) {
+            Some(t) => t,
+            None => &EOF_TOKEN,
+        }
+    }
+
     pub fn check(&self, match_token: TokenKind) -> bool {
         let token = self.peek();
         token == match_token

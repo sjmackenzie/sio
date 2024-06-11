@@ -42,7 +42,6 @@ pub enum Expr {
     Nil,
     String(String),
     Call(Box<WithSpan<Expr>>, Vec<WithSpan<Expr>>),
-    UrlCall(Vec<WithSpan<String>>, Vec<WithSpan<Expr>>),
     Unary(WithSpan<UnaryOperator>, Box<WithSpan<Expr>>),
     Variable(WithSpan<Identifier>),
     Logical(Box<WithSpan<Expr>>, WithSpan<LogicalOperator>, Box<WithSpan<Expr>>),
@@ -52,23 +51,29 @@ pub enum Expr {
     List(Vec<WithSpan<Expr>>),
     ListGet(Box<WithSpan<Expr>>, Box<WithSpan<Expr>>),
     ListSet(Box<WithSpan<Expr>>, Box<WithSpan<Expr>>, Box<WithSpan<Expr>>),
+    ListAppend(Box<WithSpan<Expr>>, Box<WithSpan<Expr>>),
+    Function(Function),
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum Stmt {
     Url(Box<WithSpan<Identifier>>, HierarchicalName),
+    Use(Vec<WithSpan<String>>, Vec<UseItem>),
     Expression(Box<WithSpan<Expr>>),
     Print(Box<WithSpan<Expr>>),
     If(Box<WithSpan<Expr>>, Box<WithSpan<Stmt>>, Option<Box<WithSpan<Stmt>>>),
     Block(Vec<WithSpan<Stmt>>),
-    //Let(WithSpan<Identifier>, WithSpan<Identifier>, Option<WithSpan<Expr>>),
-    //LetMultiple(Vec<WithSpan<Identifier>>, WithSpan<Identifier>),
     Let(WithSpan<Identifier>, Option<WithSpan<Expr>>),
     LetMultiple(Vec<WithSpan<Identifier>>),
     Thread(Vec<WithSpan<Stmt>>),
     Function(Function),
-    Use(WithSpan<String>, Option<Vec<WithSpan<String>>>),
     Module(Module),
     Return(Box<WithSpan<Expr>>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum UseItem {
+    Simple { path: Vec<WithSpan<String>> },
+    Nested { path: Vec<WithSpan<String>>, items: Vec<UseItem> },
 }
 
 pub type Ast = Vec<WithSpan<Stmt>>;
@@ -90,7 +95,7 @@ pub enum Visibility {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Param {
     pub name: WithSpan<Identifier>,
-    pub param_type: WithSpan<Identifier>,
+    //pub param_type: WithSpan<Identifier>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -98,14 +103,7 @@ pub struct Function {
     pub visibility: Visibility,
     pub name: Option<WithSpan<Identifier>>,
     pub params: Vec<Param>,
-    pub return_type: Option<WithSpan<Identifier>>,
-    pub body: Vec<WithSpan<Stmt>>,
-}
-
-     
-#[derive(Debug, Clone, PartialEq)]
-pub struct HierarchicalName {
-    pub parts: Vec<WithSpan<String>>,
+    pub body: Box<WithSpan<Stmt>>,
 }
 
 impl fmt::Display for UnaryOperator {
@@ -141,6 +139,11 @@ impl fmt::Display for LogicalOperator {
             LogicalOperator::Or => write!(f, "||"),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HierarchicalName {
+    pub parts: Vec<WithSpan<String>>,
 }
 
 impl HierarchicalName {
