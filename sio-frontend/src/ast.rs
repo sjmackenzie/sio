@@ -2,10 +2,15 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::boxed::Box;
 use alloc::fmt;
-
 use crate::position::WithSpan;
 
 pub type Identifier = String;
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum UrlComponent {
+    Identifier(WithSpan<Identifier>),
+    String(WithSpan<String>),
+}
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum UnaryOperator {
@@ -56,7 +61,7 @@ pub enum Expr {
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum Stmt {
-    Url(Box<WithSpan<Identifier>>, HierarchicalName),
+    Url(Box<WithSpan<Identifier>>, Vec<WithSpan<UrlComponent>>),
     Use(Vec<WithSpan<String>>, Vec<UseItem>),
     Expression(Box<WithSpan<Expr>>),
     Print(Box<WithSpan<Expr>>),
@@ -80,10 +85,10 @@ pub type Ast = Vec<WithSpan<Stmt>>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Module {
-    Corporal { name: HierarchicalName, stmts: Vec<WithSpan<Stmt>> },
-    Major { name: HierarchicalName, stmts: Vec<WithSpan<Stmt>> },
-    Brigadier { name: HierarchicalName, stmts: Vec<WithSpan<Stmt>>},
-    General { name: HierarchicalName, stmts: Vec<WithSpan<Stmt>>},
+    Corporal { name: Vec<WithSpan<UrlComponent>>, stmts: Vec<WithSpan<Stmt>> },
+    Major { name: Vec<WithSpan<UrlComponent>>, stmts: Vec<WithSpan<Stmt>> },
+    Brigadier { name: Vec<WithSpan<UrlComponent>>, stmts: Vec<WithSpan<Stmt>>},
+    General { name: Vec<WithSpan<UrlComponent>>, stmts: Vec<WithSpan<Stmt>>},
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -138,23 +143,5 @@ impl fmt::Display for LogicalOperator {
             LogicalOperator::And => write!(f, "&&"),
             LogicalOperator::Or => write!(f, "||"),
         }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct HierarchicalName {
-    pub parts: Vec<WithSpan<String>>,
-}
-
-impl HierarchicalName {
-    pub fn new(parts: Vec<WithSpan<String>>) -> Self {
-        Self { parts }
-    }
-
-    pub fn to_string(&self) -> String {
-        self.parts.iter()
-            .map(|part| part.value.clone())
-            .collect::<Vec<String>>()
-            .join("::")
     }
 }

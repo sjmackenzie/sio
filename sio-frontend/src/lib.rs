@@ -15,11 +15,12 @@ mod token;
 mod tokenizer;
 mod stmt_parser;
 mod expr_parser;
+mod hierarchical_name;
 //mod ast_to_ir;
-//mod url_resolver;
+mod url_resolver;
 
 use werbolg_ir_write::module;
-use werbolg_lang_common::{FileUnit, ParseError};
+use werbolg_lang_common::{FileUnit};
 use ast::Ast;
 use position::Diagnostic;
 

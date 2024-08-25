@@ -1,6 +1,5 @@
 use super::ast::*;
 use super::token::*;
-use crate::common::expect_identifier;
 use crate::parser::Parser;
 use crate::position::{WithSpan, Span};
 use alloc::boxed::Box;
@@ -75,6 +74,7 @@ fn parse_infix(it: &mut Parser, left: WithSpan<Expr>) -> Result<WithSpan<Expr>, 
         TokenKind::Or | TokenKind::And => parse_logical(it, left),
         TokenKind::Equal => parse_assign(it, left),
         TokenKind::LeftParen => parse_call(it, left),
+        TokenKind::LeftParen => parse_anonymous_function(it),
         TokenKind::LeftBracket => {
             if it.peek_next() == TokenKind::Pipe {
                 parse_list_append(it)
@@ -83,7 +83,6 @@ fn parse_infix(it: &mut Parser, left: WithSpan<Expr>) -> Result<WithSpan<Expr>, 
             }
         }
         TokenKind::Dot => parse_get(it, left),
-        TokenKind::LeftParen => parse_anonymous_function(it),
         _ => {
             let unexpected_token = it.peek_token();
             it.error(&format!("Unexpected {}", unexpected_token.value), unexpected_token.span);

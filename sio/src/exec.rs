@@ -1,7 +1,10 @@
-use sio::environ::brigadier::{BrigadierLiteral, brigadier_literal_mapper as literal_mapper, brigadier_literal_to_value as literal_to_value};
-use sio::allocator::BrigadierAllocator as Alloc;
-use sio::value::brigadier::BrigadierValue as Value;
-use sio::BrigadierState;
+use sio_compiler::nifs::brigadier::{
+    BrigadierLiteral, 
+    brigadier_literal_mapper as literal_mapper, brigadier_literal_to_value as literal_to_value
+};
+use sio_compiler::allocator::BrigadierAllocator as Alloc;
+use sio_compiler::value::brigadier::BrigadierValue as Value;
+use sio_compiler::BrigadierState;
 
 use hashbrown::HashSet;
 use werbolg_compile::{code_dump, compile, Environment, InstructionAddress};

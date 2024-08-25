@@ -234,7 +234,6 @@ impl Display for TokenKind {
             TokenKind::Colon => "':'",
             TokenKind::ColonColon => "'::'",
             TokenKind::Equal => "'='",
-            TokenKind::EqualEqual => "'=='",
             TokenKind::Identifier => "identifier",
             TokenKind::String => "string",
             TokenKind::PublicKey => "public_key",

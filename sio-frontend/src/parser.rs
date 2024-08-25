@@ -4,6 +4,7 @@ use crate::alloc::string::ToString;
 use crate::{
     position::{WithSpan, Diagnostic, Span},
     token::{Token, TokenKind},
+    url_resolver::UrlResolver,
 };
 
 static EOF_TOKEN: WithSpan<Token> = WithSpan::empty(Token::Eof);
@@ -12,11 +13,12 @@ pub struct Parser<'a> {
     tokens: &'a [WithSpan<Token>],
     cursor: usize,
     diagnostics: Vec<Diagnostic>,
+    pub url_resolver: UrlResolver,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [WithSpan<Token>]) -> Self {
-        Parser { tokens, cursor: 0, diagnostics: Vec::new() }
+        Parser { tokens, cursor: 0, diagnostics: Vec::new(), url_resolver: UrlResolver::new() }
     }
 
     pub fn diagnostics(&self) -> &[Diagnostic] {

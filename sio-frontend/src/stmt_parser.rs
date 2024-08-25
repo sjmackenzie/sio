@@ -33,12 +33,11 @@ fn parse_module_declaration(it: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
         },
     }
 }
-
 fn parse_url_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
     let begin_span = p.expect(TokenKind::Url)?;
     let name = expect_identifier(p)?;
     p.expect(TokenKind::Colon)?;
-    let hierarchical_names = parse_hierarchical_names(p)?;
+    let hierarchical_names = parse_hierarchical_components(p)?;
     let end_span = p.expect(TokenKind::Semicolon)?;
 
     Ok(WithSpan::new(
@@ -47,65 +46,83 @@ fn parse_url_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
     ))
 }
 
-fn parse_hierarchical_names(p: &mut Parser) -> Result<HierarchicalName, ()> {
-    let mut parts = Vec::new();
+fn parse_hierarchical_components(p: &mut Parser) -> Result<Vec<WithSpan<UrlComponent>>, ()> {
+    let mut components = Vec::new();
 
-    // Expect the first part of the name
-    parts.push(expect_identifier(p)?);
+    // Expect the first component of the URL
+    match p.peek() {
+        TokenKind::String => {
+            let string = p.expect(TokenKind::String)?;
+            let string_value = WithSpan::new(string.value.to_string(), string.span);
+            components.push(WithSpan::new(UrlComponent::String(string_value), string.span));
+        }
+        TokenKind::Identifier => {
+            let identifier = p.expect(TokenKind::Identifier)?;
+            let identifier_value = WithSpan::new(identifier.value.to_string(), identifier.span);
+            components.push(WithSpan::new(UrlComponent::Identifier(identifier_value), identifier.span));
+        }
+        _ => return Err(()),
+    }
 
     while p.peek() == TokenKind::ColonColon {
         p.expect(TokenKind::ColonColon)?;
-        parts.push(expect_identifier(p)?);
+        match p.peek() {
+            TokenKind::String => {
+                let string = p.expect(TokenKind::String)?;
+                let string_value = WithSpan::new(string.value.to_string(), string.span);
+                components.push(WithSpan::new(UrlComponent::String(string_value), string.span));
+            }
+            TokenKind::Identifier => {
+                let identifier = p.expect(TokenKind::Identifier)?;
+                let identifier_value = WithSpan::new(identifier.value.to_string(), identifier.span);
+                components.push(WithSpan::new(UrlComponent::Identifier(identifier_value), identifier.span));
+            }
+            _ => return Err(()),
+        }
     }
 
-    Ok(HierarchicalName { parts })
+    Ok(components)
 }
 
-fn parse_general_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
-    let begin_span = p.expect(TokenKind::General)?;
-    let name = parse_hierarchical_names(p)?;
+fn parse_module<F>( p: &mut Parser, token_kind: TokenKind, create_module: F) -> Result<WithSpan<Stmt>, ()>
+where
+    F: FnOnce(Vec<WithSpan<UrlComponent>>, Vec<WithSpan<Stmt>>) -> Module,
+{
+    let begin_span = p.expect(token_kind)?;
+    let name = parse_hierarchical_components(p)?;
     p.expect(TokenKind::LeftBrace)?;
-    let stmts = parse_module_declarations(p)?;
+    let statements = parse_module_declarations(p)?;
     let end_span = p.expect(TokenKind::RightBrace)?;
     Ok(WithSpan::new(
-        Stmt::Module(Module::General{ name, stmts }),
+        Stmt::Module(create_module(name, statements)), 
         Span::union(&begin_span, &end_span),
     ))
 }
+fn parse_general_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
+    let general_module = | name: Vec<WithSpan<UrlComponent>>, stmts: Vec<WithSpan<Stmt>> | { 
+        Module::General{ name, stmts }
+    };
+    parse_module(p, TokenKind::General, general_module)
+}
 fn parse_brigadier_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
-    let begin_span = p.expect(TokenKind::Brigadier)?;
-    let name = parse_hierarchical_names(p)?;
-    p.expect(TokenKind::LeftBrace)?;
-    let stmts = parse_module_declarations(p)?;
-    let end_span = p.expect(TokenKind::RightBrace)?;
-    Ok(WithSpan::new(
-        Stmt::Module(Module::General{ name, stmts }),
-        Span::union(&begin_span, &end_span),
-    ))
+    let brigadier_module = | name: Vec<WithSpan<UrlComponent>>, stmts: Vec<WithSpan<Stmt>> | { 
+        Module::Brigadier{ name, stmts }
+    };
+    parse_module(p, TokenKind::Brigadier, brigadier_module)
 }
 
 fn parse_major_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
-    let begin_span = p.expect(TokenKind::Major)?;
-    let name = parse_hierarchical_names(p)?;
-    p.expect(TokenKind::LeftBrace)?;
-    let stmts = parse_module_declarations(p)?;
-    let end_span = p.expect(TokenKind::RightBrace)?;
-    Ok(WithSpan::new(
-        Stmt::Module(Module::General{ name, stmts }),
-        Span::union(&begin_span, &end_span),
-    ))
+    let major_module = | name: Vec<WithSpan<UrlComponent>>, stmts: Vec<WithSpan<Stmt>> | { 
+        Module::Major{ name, stmts }
+    };
+    parse_module(p, TokenKind::Major, major_module)
 }
 
 fn parse_corporal_declaration(p: &mut Parser) -> Result<WithSpan<Stmt>, ()> {
-    let begin_span = p.expect(TokenKind::Corporal)?;
-    let name = parse_hierarchical_names(p)?;
-    p.expect(TokenKind::LeftBrace)?;
-    let stmts = parse_module_declarations(p)?;
-    let end_span = p.expect(TokenKind::RightBrace)?;
-    Ok(WithSpan::new(
-        Stmt::Module(Module::Corporal{ name, stmts }),
-        Span::union(&begin_span, &end_span),
-    ))
+    let corporal_module = | name: Vec<WithSpan<UrlComponent>>, stmts: Vec<WithSpan<Stmt>> | { 
+        Module::Corporal{ name, stmts }
+    };
+    parse_module(p, TokenKind::Corporal, corporal_module)
 }
 
 fn parse_module_declarations(p: &mut Parser) -> Result<Vec<WithSpan<Stmt>>, ()> {

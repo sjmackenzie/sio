@@ -3,9 +3,7 @@ resolver = "2"
 
 members = [
     "sio",
-    "sio-cli",
-    "sio-tests",
     "sio-frontend",
-    "single-assignment-store",
-    "sio-garrison",
+    "sio-compiler",
+    "sio-vm", 
 ]

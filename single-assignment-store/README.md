@@ -1,1 +1,0 @@
-a hash table that shares one value across multiple keys.

@@ -11,6 +11,14 @@ impl BytePos {
     }
 }
 
+impl core::ops::Add<u32> for BytePos {
+    type Output = Self;
+
+    fn add(self, other: u32) -> Self {
+        BytePos(self.0 + other)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Span {
     pub start: BytePos,
@@ -18,7 +26,7 @@ pub struct Span {
 }
 
 impl Span {
-    pub unsafe fn new_unchecked(start: u32, end: u32) -> Self {
+    pub fn new_unchecked(start: u32, end: u32) -> Self {
         Span {
             start: BytePos(start),
             end: BytePos(end),
@@ -58,7 +66,33 @@ impl<T> From<&WithSpan<T>> for Span {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+impl<T> PartialEq for WithSpan<T> where T: PartialEq {
+    fn eq(&self, other: &WithSpan<T>) -> bool {
+        self.value == other.value && self.span == other.span
+    }
+}
+
+impl<T> Eq for WithSpan<T> where T: Eq {}
+
+impl<T> PartialOrd for WithSpan<T> where T: Ord {
+    fn partial_cmp(&self, other: &WithSpan<T>) -> Option<core::cmp::Ordering> {
+        Some(self.value.cmp(&other.value))
+    }
+}
+
+impl<T> Ord for WithSpan<T> where T: Ord {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.value.cmp(&other.value)
+    }
+}
+
+impl<T: std::fmt::Display> std::fmt::Display for WithSpan<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct WithSpan<T> {
     pub value: T,
     pub span: Span,
@@ -79,7 +113,7 @@ impl<T> WithSpan<T> {
         }
     }
 
-    pub const unsafe fn new_unchecked(value: T, start: u32, end: u32) -> Self {
+    pub const fn new_unchecked(value: T, start: u32, end: u32) -> Self {
         Self {
             value,
             span: Span {

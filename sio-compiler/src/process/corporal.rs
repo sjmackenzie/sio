@@ -1,16 +1,14 @@
-use sio::{
+use crate::{
+    process::run_frontend,
     CorporalExecutionMachine, CorporalEnvironment, CorporalAllocator, CorporalLiteral, CorporalState, CorporalValue, corporal_literal_mapper, corporal_literal_to_value
 };
 use werbolg_core::{AbsPath, Ident, Namespace, ir::Module};
 use werbolg_exec::{ ExecutionMachine, ExecutionEnviron, ExecutionParams, WerRefCount};
 use werbolg_compile::{compile};
 use werbolg_lang_common::{Report, ReportKind, Source};
-use alloc::{ 
-    format, vec, vec::Vec, boxed::Box, string::String};
+use alloc::{format, vec, vec::Vec, boxed::Box, string::String};
+
 use core::error::Error;
-use crate::{
-    //SioParams, 
-    report_print, run_frontend};
 
 
 fn compile_corporal(
@@ -32,7 +30,7 @@ fn compile_corporal(
                 .lines_before(1)
                 .lines_after(1)
                 .highlight(e.span().unwrap(), format!("compilation error here"));
-            report_print(&source, report)?;
+            //report_print(&source, report)?;
             return Err(format!("compilation error {:?}", e).into());
         }
         Ok(m) => m,
@@ -67,6 +65,18 @@ pub fn build_corporal_machine (
     Ok(em)
 }
 
+pub fn make_corporal(
+    src: String, 
+    path: String, 
+    mut env: CorporalEnvironment
+) -> Result<Vec<CorporalExecutionMachine>, Box<dyn Error>> {
+    let (source, module) = run_frontend(src, path)?;
+    let cu = compile_corporal(&mut env, source, module)?;
+    let ee = werbolg_exec::ExecutionEnviron::from_compile_environment(env.finalize());
+    let em = build_corporal_machine(ee, cu)?;
+    Ok(vec![em])
+}
+
 pub struct Corporal {
     threads: Vec<CorporalExecutionMachine>,
 }
@@ -89,7 +99,6 @@ impl Corporal {
             match werbolg_exec::step(thread).unwrap() {
                 None => {},
                 Some(v) => {
-                    println!("thread: {:?}", v);
                     break;
                 },
             }
@@ -112,6 +121,7 @@ mod corporal_tests {
         url type : src;
         url name : app_name;
         url app : public_key::type::name;
+        corporal sio79f708c25a23ed367610facc14035adc7ba4b1bfa9252ef55c6c24f1b9b03abd::src::app_name::Corporal
         corporal app::Corporal {
             pub main :: () {
                 let x;
@@ -129,6 +139,7 @@ mod corporal_tests {
                 y = value;
             }
         }
+        major sio79f708c25a23ed367610facc14035adc7ba4b1bfa9252ef55c6c24f1b9b03abd::src::app_name::Major
         major app::Major {
             pub main :: () {
                 let x;

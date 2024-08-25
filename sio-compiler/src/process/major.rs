@@ -1,13 +1,13 @@
-use sio::{
+use crate::{
+    process::run_frontend,
     MajorExecutionMachine, MajorEnvironment, MajorAllocator, MajorLiteral, MajorState, MajorValue, major_literal_mapper, major_literal_to_value
 };
 use werbolg_core::{AbsPath, Ident, Namespace, ir::Module};
 use werbolg_exec::{ExecutionMachine, ExecutionEnviron, ExecutionParams, WerRefCount};
 use werbolg_compile::{compile};
 use werbolg_lang_common::{Report, ReportKind, Source};
-use alloc::{format, vec, boxed::Box, string::String};
+use alloc::{format, vec, vec::Vec, boxed::Box, string::String};
 use core::error::Error;
-use crate::{ report_print, run_frontend};
 
 
 fn compile_major(
@@ -29,7 +29,7 @@ fn compile_major(
                 .lines_before(1)
                 .lines_after(1)
                 .highlight(e.span().unwrap(), format!("compilation error here"));
-            report_print(&source, report)?;
+            //report_print(&source, report)?;
             return Err(format!("compilation error {:?}", e).into());
         }
         Ok(m) => m,
@@ -64,8 +64,20 @@ pub fn build_major_machine (
     Ok(em)
 }
 
+pub fn make_major(
+    src: String, 
+    path: String, 
+    mut env: MajorEnvironment
+) -> Result<Vec<MajorExecutionMachine>, Box<dyn Error>> {
+    let (source, module) = run_frontend(src, path)?;
+    let cu = compile_major(&mut env, source, module)?;
+    let ee = werbolg_exec::ExecutionEnviron::from_compile_environment(env.finalize());
+    let em = build_major_machine(ee, cu)?;
+    Ok(vec![em])
+}
+
 pub struct Major {
-    em: MajorExecutionMachine,
+    threads: Vec<MajorExecutionMachine>,
 }
 
 impl Major {
@@ -79,16 +91,18 @@ impl Major {
         let cu = compile_major(/*params, */ &mut env, source, module)?;
         let ee = werbolg_exec::ExecutionEnviron::from_compile_environment(env.finalize());
         let em = build_major_machine(ee, cu)?;
-        Ok(Self { em: em })
+        Ok(Self { threads: vec![em] })
     }
     pub fn march(&mut self) -> Result<Option<MajorValue>, Box<dyn Error>> {
-        match werbolg_exec::step(&mut self.em).unwrap() {
-            None => Ok(None),
-            Some(v) => {
-                println!("major: {:?}", v);
-                return Ok(Some(v));
-            },
+        for thread in &mut self.threads {
+            match werbolg_exec::step(thread).unwrap() {
+                None => {},
+                Some(v) => {
+                    break;
+                },
+            }
         }
+        Ok(None)
     }
 }
 

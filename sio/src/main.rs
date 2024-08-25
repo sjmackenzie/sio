@@ -4,12 +4,6 @@ mod args;
 mod exec;
 mod params;
 
-use sio::{
-    create_brigadier_env,
-    create_major_env,
-    create_corporal_env,
-};
-use sio_garrison::{Garrison, Brigadier, Major, Corporal};
 use exec::*;
 use params::{Frontend, SioParams};
 
@@ -149,20 +143,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
     	";
-    let mut brigadier_env = create_brigadier_env();
-    let mut garrison = Garrison::new(src.to_string(), "brigadier".to_string(), brigadier_env);
-
-    let mut major_env = create_major_env();
-    let major = Major::new(src.to_string(),"major".to_string(), major_env).expect("reason");
-    garrison.add_major(major);
-
-    let mut corporal_env = create_corporal_env();
-    let corporal= Corporal::new(src.to_string(),"corporal".to_string(), corporal_env).expect("reason");
-    garrison.add_corporal(corporal);
-
-    loop {
-        garrison.march();
-    }
 
     Ok(())
 }

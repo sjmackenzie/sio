@@ -1,14 +1,13 @@
-use sio::{
+use crate::{
+    process::run_frontend,
     BrigadierExecutionMachine, BrigadierEnvironment, BrigadierAllocator, BrigadierLiteral, BrigadierState, BrigadierValue, brigadier_literal_mapper, brigadier_literal_to_value,
 };
 use werbolg_core::{AbsPath, Ident, Namespace, ir::Module};
 use werbolg_exec::{ExecutionMachine, ExecutionEnviron, ExecutionParams, WerRefCount};
 use werbolg_compile::{compile};
 use werbolg_lang_common::{Report, ReportKind, Source};
-use alloc::{format, vec, boxed::Box, string::String};
+use alloc::{format, vec, vec::Vec, boxed::Box, string::String};
 use core::error::Error;
-use crate::{report_print, run_frontend};
-
 
 fn compile_brigadier(
     //params: SioParams,
@@ -28,7 +27,7 @@ fn compile_brigadier(
                 .lines_before(1)
                 .lines_after(1)
                 .highlight(e.span().unwrap(), format!("compilation error here"));
-            report_print(&source, report)?;
+            //report_print(&source, report)?;
             return Err(format!("compilation error {:?}", e).into());
         }
         Ok(m) => m,
@@ -41,7 +40,7 @@ fn compile_brigadier(
     Ok(cu)
 }
 
-pub fn build_brigadier_machine (
+fn build_brigadier_machine (
     ee: ExecutionEnviron<BrigadierAllocator, BrigadierLiteral, BrigadierState, BrigadierValue>,
     cu: werbolg_compile::CompilationUnit<BrigadierLiteral>,
 ) -> Result<BrigadierExecutionMachine, Box<dyn Error>> {
@@ -63,8 +62,20 @@ pub fn build_brigadier_machine (
     Ok(em)
 }
 
+pub fn make_brigadier(
+    src: String, 
+    path: String, 
+    mut env: BrigadierEnvironment
+) -> Result<Vec<BrigadierExecutionMachine>, Box<dyn Error>> {
+    let (source, module) = run_frontend(src, path)?;
+    let cu = compile_brigadier(&mut env, source, module)?;
+    let ee = werbolg_exec::ExecutionEnviron::from_compile_environment(env.finalize());
+    let em = build_brigadier_machine(ee, cu)?;
+    Ok(vec![em])
+}
+
 pub struct Brigadier {
-    em: BrigadierExecutionMachine,
+    threads: Vec<BrigadierExecutionMachine>,
 }
 
 impl  Brigadier {
@@ -78,16 +89,18 @@ impl  Brigadier {
         let cu = compile_brigadier(&mut env, source, module)?;
         let ee = werbolg_exec::ExecutionEnviron::from_compile_environment(env.finalize());
         let em = build_brigadier_machine(ee, cu)?;
-        Ok(Self{em})
+        Ok(Self { threads: vec![em] })
     }
     pub fn march(&mut self) -> Result<Option<BrigadierValue>, Box<dyn Error>> {
-        match werbolg_exec::step(&mut self.em).unwrap() {
-            None => Ok(None),
-            Some(v) => {
-                println!("brigadier: {:?}", v);
-                return Ok(Some(v));
-            },
+        for thread in &mut self.threads {
+            match werbolg_exec::step(thread).unwrap() {
+                None => {},
+                Some(v) => {
+                    break;
+                },
+            }
         }
+        Ok(None)
     }
 }
 

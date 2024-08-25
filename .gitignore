@@ -1,6 +1,4 @@
 target/
 Cargo.lock
 flake.lock
-pkg
-zig-cache
-zig-out
+.DS_store
