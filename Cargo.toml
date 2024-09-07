@@ -2,8 +2,6 @@
 resolver = "2"
 
 members = [
-    "sio",
-    "sio-frontend",
-    "sio-compiler",
-    "sio-vm", 
+    "sio-core", 
+    "sio", 
 ]
